@@ -6,19 +6,28 @@ from logic import (
     calcul_benefice_net,
     taux_rentabilite,
     taux_livraison,
-    objectif_colis_jour,
-    calcul_deficit_mensuel
+    objectif_colis_jour
 )
 from config import MONNAIE, BENEFICE_PAR_COLIS
 
 # =========================
-# FORMAT MONTANT LISIBLE
+# FORMAT DES MONTANTS
 # =========================
 def fmt(val):
     try:
         return f"{int(val):,}".replace(",", ".")
     except:
         return "0"
+
+# =========================
+# RECALCUL UNIQUE DU DÉFICIT (SOURCE UNIQUE)
+# =========================
+def recalcul_deficit(df):
+    deficit = 0
+    for _, row in df.iterrows():
+        deficit += row["objectif_colis"] - row["commandes_livrees"]
+        deficit = max(deficit, 0)
+    return int(deficit)
 
 st.set_page_config(page_title="Gestion Business", layout="centered")
 st.title("📊 Gestion Business – Tableau de Bord")
@@ -46,7 +55,7 @@ COLUMNS = [
 ]
 
 # =========================
-# CHARGEMENT SÉCURISÉ
+# CHARGEMENT
 # =========================
 try:
     df = pd.read_csv(file_month)
@@ -60,7 +69,7 @@ for col in COLUMNS:
 df = df[COLUMNS]
 
 # =========================
-# 🗑️ SUPPRESSION D’UN JOUR (TEST / ERREUR)
+# 🗑️ SUPPRESSION
 # =========================
 st.header("🗑️ Supprimer un enregistrement")
 
@@ -69,10 +78,9 @@ if len(df) > 0:
         "Choisir la date à supprimer",
         df["date"].astype(str).tolist()
     )
-
     if st.button("❌ Supprimer cette journée"):
         df = df[df["date"].astype(str) != del_date].reset_index(drop=True)
-        df["deficit_colis"] = calcul_deficit_mensuel(df)
+        df["deficit_colis"] = recalcul_deficit(df)
         df.to_csv(file_month, index=False)
         st.success("✅ Journée supprimée")
         st.rerun()
@@ -99,31 +107,11 @@ else:
 def val(col):
     return int(row[col]) if row is not None else 0
 
-commandes_passees = st.number_input(
-    "🛒 Commandes passées",
-    min_value=0,
-    value=val("commandes_passees")
-)
-commandes_livrees = st.number_input(
-    "📦 Commandes livrées",
-    min_value=0,
-    value=val("commandes_livrees")
-)
-chiffre_affaire = st.number_input(
-    "💰 Chiffre d'affaires (FCFA)",
-    min_value=0,
-    value=val("chiffre_affaire")
-)
-charges = st.number_input(
-    "🧾 Charges (FCFA)",
-    min_value=0,
-    value=val("charges")
-)
-pub = st.number_input(
-    "📢 Publicité (FCFA)",
-    min_value=0,
-    value=val("pub")
-)
+commandes_passees = st.number_input("🛒 Commandes passées", min_value=0, value=val("commandes_passees"))
+commandes_livrees = st.number_input("📦 Commandes livrées", min_value=0, value=val("commandes_livrees"))
+chiffre_affaire = st.number_input("💰 Chiffre d'affaires (FCFA)", min_value=0, value=val("chiffre_affaire"))
+charges = st.number_input("🧾 Charges (FCFA)", min_value=0, value=val("charges"))
+pub = st.number_input("📢 Publicité (FCFA)", min_value=0, value=val("pub"))
 
 # =========================
 # CALCULS
@@ -160,77 +148,53 @@ if st.button("💾 Enregistrer la journée"):
     else:
         df = pd.concat([df, pd.DataFrame([ligne])], ignore_index=True)
 
-    # 🔒 recalcul UNIQUE du déficit mensuel
-    df["deficit_colis"] = calcul_deficit_mensuel(df)
-
+    df["deficit_colis"] = recalcul_deficit(df)
     df.to_csv(file_month, index=False)
     st.success("✅ Journée enregistrée")
 
 # =========================
 # DÉFICIT OFFICIEL UNIQUE
 # =========================
-deficit_officiel = calcul_deficit_mensuel(df)
+deficit_officiel = recalcul_deficit(df)
 
 # =========================
-# RÉSUMÉ DU JOUR
+# RÉSUMÉ & ANALYSE
 # =========================
-st.header("📌 Résumé du jour")
+st.header("📌 Résumé & analyse")
 
-st.metric("💵 Bénéfice net", f"{fmt(benefice)} {MONNAIE}")
+st.metric("💵 Bénéfice net du jour", f"{fmt(benefice)} {MONNAIE}")
 st.metric("📦 Déficit mensuel officiel", deficit_officiel)
-
-# =========================
-# 🧠 ANALYSE & RECOMMANDATIONS
-# =========================
-st.header("🧠 Analyse & recommandations")
 
 if deficit_officiel > 0:
     st.error(
-        f"🔴 DÉFICIT RÉEL : {deficit_officiel} colis.\n\n"
-        "👉 Priorité : livrer les commandes en attente.\n"
-        "👉 Réduire la publicité tant que le déficit n’est pas comblé."
+        f"🔴 Déficit réel : {deficit_officiel} colis\n\n"
+        "👉 Stopper la pub si nécessaire\n"
+        "👉 Livrer les commandes en attente"
     )
 else:
-    st.success(
-        "🟢 Aucun déficit.\n\n"
-        "👉 Situation saine, tu peux te concentrer sur la croissance."
-    )
+    st.success("🟢 Situation saine")
 
 # =========================
 # 🎯 OBJECTIF MENSUEL
 # =========================
 st.header("🎯 Objectif mensuel – 1 000 000 FCFA")
 
-OBJECTIF_MENSUEL = 1_000_000
+OBJECTIF = 1_000_000
 benefice_mensuel = int(df["benefice_net"].sum())
-reste = OBJECTIF_MENSUEL - benefice_mensuel
+reste = OBJECTIF - benefice_mensuel
 jours_restants = max(30 - today.day, 1)
 
-st.metric("💰 Bénéfice actuel", f"{fmt(benefice_mensuel)} {MONNAIE}")
-st.metric("🎯 Objectif", f"{fmt(OBJECTIF_MENSUEL)} {MONNAIE}")
-st.metric("⏳ Reste à atteindre", f"{fmt(max(reste, 0))} {MONNAIE}")
+st.metric("💰 Bénéfice mensuel", f"{fmt(benefice_mensuel)} {MONNAIE}")
+st.metric("⏳ Reste à atteindre", f"{fmt(max(reste,0))} {MONNAIE}")
 
 if reste > 0:
     colis_jour = int((reste / (BENEFICE_PAR_COLIS * jours_restants)) + 1)
-    st.info(
-        f"📦 Pour atteindre l’objectif, vise **{colis_jour} colis livrés par jour** "
-        f"sur les **{jours_restants} jours restants**."
-    )
+    st.info(f"📦 Vise **{colis_jour} colis par jour**")
 else:
-    st.success("🔥 OBJECTIF MENSUEL ATTEINT")
+    st.success("🔥 OBJECTIF ATTEINT")
 
 # =========================
 # 📆 VUE MENSUELLE
 # =========================
 st.header("📆 Vue mensuelle")
-
-if len(df) > 0:
-    st.metric("🛒 Commandes passées", int(df["commandes_passees"].sum()))
-    st.metric("📦 Commandes livrées", int(df["commandes_livrees"].sum()))
-    st.metric("❌ Commandes perdues", int(df["commandes_perdues"].sum()))
-    st.metric("💰 CA total", f"{fmt(df['chiffre_affaire'].sum())} {MONNAIE}")
-    st.metric("💵 Bénéfice net total", f"{fmt(df['benefice_net'].sum())} {MONNAIE}")
-    st.metric("📦 Déficit final", deficit_officiel)
-    st.dataframe(df)
-else:
-    st.info("Aucune donnée ce mois-ci")
+st.dataframe(df)
