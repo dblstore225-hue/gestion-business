@@ -1,7 +1,9 @@
-# app.py
+h# app.py
 import streamlit as st
 import pandas as pd
 from datetime import date
+import os
+import shutil
 from logic import (
     calcul_benefice_net,
     taux_rentabilite,
@@ -18,6 +20,14 @@ def fmt(val):
         return f"{int(val):,}".replace(",", ".")
     except:
         return "0"
+
+# =========================
+# SAUVEGARDE AUTOMATIQUE CSV
+# =========================
+def backup_csv(path):
+    if os.path.exists(path):
+        backup_path = path.replace(".csv", "_backup.csv")
+        shutil.copy(path, backup_path)
 
 # =========================
 # DÉFICIT BASÉ UNIQUEMENT SUR COLIS LIVRÉS (CUMULATIF)
@@ -108,15 +118,13 @@ if len(df) > 0:
         if confirm and st.button("❌ Supprimer définitivement"):
             df = df.drop(index=idx_to_delete).reset_index(drop=True)
             df["deficit_colis"] = recalcul_deficit(df)
+
+            backup_csv(file_month)
             df.to_csv(file_month, index=False)
+
             st.success("✅ Journée supprimée sans toucher aux autres")
             st.rerun()
 
-    else:
-        st.error(
-            "❌ Plusieurs lignes ont la même date.\n"
-            "Suppression bloquée pour éviter une perte de données."
-        )
 else:
     st.info("Aucun enregistrement à supprimer")
 
@@ -196,7 +204,10 @@ if st.button("💾 Enregistrer la journée"):
         df = pd.concat([df, pd.DataFrame([ligne])], ignore_index=True)
 
     df["deficit_colis"] = recalcul_deficit(df)
+
+    backup_csv(file_month)
     df.to_csv(file_month, index=False)
+
     st.success("✅ Journée enregistrée")
 
 # =========================
