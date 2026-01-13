@@ -124,7 +124,6 @@ if len(df) > 0:
 
             st.success("✅ Journée supprimée sans toucher aux autres")
             st.rerun()
-
 else:
     st.info("Aucun enregistrement à supprimer")
 
@@ -137,12 +136,15 @@ edit_mode = st.checkbox("✏️ Modifier une journée existante")
 
 if edit_mode and len(df) > 0:
     selected_date = st.selectbox(
-        "Choisir la date",
+        "Choisir la date à modifier",
         df["date"].tolist()
     )
     row = df[df["date"] == selected_date].iloc[0]
 else:
-    selected_date = today.isoformat()
+    selected_date = st.date_input(
+        "📅 Date de la journée à enregistrer",
+        value=today
+    ).isoformat()
     row = None
 
 def val(col):
@@ -177,10 +179,6 @@ objectif = objectif_colis_jour(pub_reelle)
 # ENREGISTREMENT
 # =========================
 if st.button("💾 Enregistrer la journée"):
-    if not edit_mode and selected_date in df["date"].values:
-        st.error("❌ Cette date existe déjà. Active le mode modification.")
-        st.stop()
-
     ligne = {
         "date": selected_date,
         "commandes_passees": commandes_passees,
