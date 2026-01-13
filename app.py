@@ -20,13 +20,24 @@ def fmt(val):
         return "0"
 
 # =========================
-# DÉFICIT UNIQUE (RECALCUL GLOBAL)
+# DÉFICIT BASÉ UNIQUEMENT SUR COLIS LIVRÉS (CUMULATIF)
 # =========================
 def recalcul_deficit(df):
+    """
+    Règle :
+    - seuil journalier = 4 colis
+    - moins de 4 → déficit augmente
+    - plus de 4 → surplus réduit le déficit
+    - déficit jamais négatif
+    """
     deficit = 0
+
     for _, row in df.iterrows():
-        deficit += row["objectif_colis"] - row["commandes_livrees"]
+        livres = int(row["commandes_livrees"])
+        ecart = 4 - livres
+        deficit += ecart
         deficit = max(deficit, 0)
+
     return int(deficit)
 
 # =========================
