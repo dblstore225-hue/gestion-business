@@ -209,6 +209,11 @@ deficit_officiel = recalcul_deficit(df)
 st.metric("🛒 Commandes passées", commandes_passees)
 st.metric("📦 Commandes livrées", commandes_livrees)
 st.metric("❌ Commandes perdues", commandes_perdues)
+
+st.metric("📢 Publicité", f"{fmt(pub)} {MONNAIE}")
+st.metric("📢 Publicité réelle", f"{fmt(pub_reelle)} {MONNAIE}")
+st.metric("🧾 Charges", f"{fmt(charges)} {MONNAIE}")
+
 st.metric("📈 Taux de livraison", f"{taux_livr} %")
 st.metric("💵 Bénéfice net", f"{fmt(benefice)} {MONNAIE}")
 st.metric("📊 Taux bénéfice / CA", f"{taux_benef} %")
@@ -250,9 +255,15 @@ if len(df) > 0:
     st.metric("🛒 Commandes passées", int(df["commandes_passees"].sum()))
     st.metric("📦 Commandes livrées", int(df["commandes_livrees"].sum()))
     st.metric("❌ Commandes perdues", int(df["commandes_perdues"].sum()))
+
+    st.metric("📢 Publicité totale", f"{fmt(df['pub'].sum())} {MONNAIE}")
+    st.metric("📢 Publicité réelle totale", f"{fmt(df['pub_reelle'].sum())} {MONNAIE}")
+    st.metric("🧾 Charges totales", f"{fmt(df['charges'].sum())} {MONNAIE}")
+
     st.metric("💰 CA total", f"{fmt(df['chiffre_affaire'].sum())} {MONNAIE}")
     st.metric("💵 Bénéfice net total", f"{fmt(df['benefice_net'].sum())} {MONNAIE}")
     st.metric("🚨 Déficit final", deficit_officiel)
+
     st.dataframe(df)
 else:
     st.info("Aucune donnée ce mois-ci")
