@@ -29,6 +29,9 @@ def recalcul_deficit(df):
         deficit = max(deficit, 0)
     return int(deficit)
 
+# =========================
+# CONFIG STREAMLIT
+# =========================
 st.set_page_config(page_title="Gestion Business", layout="centered")
 st.title("📊 Gestion Business – Tableau de Bord")
 
@@ -67,24 +70,39 @@ for col in COLUMNS:
         df[col] = 0
 
 df = df[COLUMNS]
+df["date"] = df["date"].astype(str)
 
 # =========================
-# 🗑️ SUPPRESSION D’UN ENREGISTREMENT
+# 🗑️ SUPPRESSION SÉCURISÉE
 # =========================
-st.header("🗑️ Supprimer un enregistrement (tests / erreurs)")
+st.header("🗑️ Supprimer un enregistrement (sécurisé)")
 
 if len(df) > 0:
     del_date = st.selectbox(
         "Choisir la date à supprimer",
-        df["date"].astype(str).tolist()
+        df["date"].unique().tolist()
     )
 
-    if st.button("❌ Supprimer cette journée"):
-        df = df[df["date"].astype(str) != del_date].reset_index(drop=True)
-        df["deficit_colis"] = recalcul_deficit(df)
-        df.to_csv(file_month, index=False)
-        st.success("✅ Journée supprimée")
-        st.rerun()
+    indices = df.index[df["date"] == del_date].tolist()
+
+    if len(indices) == 1:
+        idx_to_delete = indices[0]
+
+        st.warning(f"⚠️ Tu vas supprimer la journée du **{del_date}**")
+        confirm = st.checkbox("✅ Je confirme la suppression")
+
+        if confirm and st.button("❌ Supprimer définitivement"):
+            df = df.drop(index=idx_to_delete).reset_index(drop=True)
+            df["deficit_colis"] = recalcul_deficit(df)
+            df.to_csv(file_month, index=False)
+            st.success("✅ Journée supprimée sans toucher aux autres")
+            st.rerun()
+
+    else:
+        st.error(
+            "❌ Plusieurs lignes ont la même date.\n"
+            "Suppression bloquée pour éviter une perte de données."
+        )
 else:
     st.info("Aucun enregistrement à supprimer")
 
@@ -98,9 +116,9 @@ edit_mode = st.checkbox("✏️ Modifier une journée existante")
 if edit_mode and len(df) > 0:
     selected_date = st.selectbox(
         "Choisir la date",
-        df["date"].astype(str).tolist()
+        df["date"].tolist()
     )
-    row = df[df["date"].astype(str) == selected_date].iloc[0]
+    row = df[df["date"] == selected_date].iloc[0]
 else:
     selected_date = today.isoformat()
     row = None
@@ -108,11 +126,21 @@ else:
 def val(col):
     return int(row[col]) if row is not None else 0
 
-commandes_passees = st.number_input("🛒 Commandes passées", min_value=0, value=val("commandes_passees"))
-commandes_livrees = st.number_input("📦 Commandes livrées", min_value=0, value=val("commandes_livrees"))
-chiffre_affaire = st.number_input("💰 Chiffre d'affaires (FCFA)", min_value=0, value=val("chiffre_affaire"))
-charges = st.number_input("🧾 Charges (FCFA)", min_value=0, value=val("charges"))
-pub = st.number_input("📢 Publicité (FCFA)", min_value=0, value=val("pub"))
+commandes_passees = st.number_input(
+    "🛒 Commandes passées", min_value=0, value=val("commandes_passees")
+)
+commandes_livrees = st.number_input(
+    "📦 Commandes livrées", min_value=0, value=val("commandes_livrees")
+)
+chiffre_affaire = st.number_input(
+    "💰 Chiffre d'affaires (FCFA)", min_value=0, value=val("chiffre_affaire")
+)
+charges = st.number_input(
+    "🧾 Charges (FCFA)", min_value=0, value=val("charges")
+)
+pub = st.number_input(
+    "📢 Publicité (FCFA)", min_value=0, value=val("pub")
+)
 
 # =========================
 # CALCULS
@@ -127,6 +155,10 @@ objectif = objectif_colis_jour(pub_reelle)
 # ENREGISTREMENT
 # =========================
 if st.button("💾 Enregistrer la journée"):
+    if not edit_mode and selected_date in df["date"].values:
+        st.error("❌ Cette date existe déjà. Active le mode modification.")
+        st.stop()
+
     ligne = {
         "date": selected_date,
         "commandes_passees": commandes_passees,
@@ -144,7 +176,7 @@ if st.button("💾 Enregistrer la journée"):
     }
 
     if edit_mode:
-        idx = df.index[df["date"].astype(str) == selected_date][0]
+        idx = df.index[df["date"] == selected_date][0]
         df.loc[idx] = ligne
     else:
         df = pd.concat([df, pd.DataFrame([ligne])], ignore_index=True)
