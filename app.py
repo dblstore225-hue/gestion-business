@@ -59,7 +59,10 @@ st.header("📝 Saisie / Modification du jour")
 edit_mode = st.checkbox("✏️ Modifier une journée existante")
 
 if edit_mode and len(df) > 0:
-    selected_date = st.selectbox("Choisir la date", df["date"].astype(str).tolist())
+    selected_date = st.selectbox(
+        "Choisir la date",
+        df["date"].astype(str).tolist()
+    )
     row = df[df["date"].astype(str) == selected_date].iloc[0]
 else:
     selected_date = today.isoformat()
@@ -68,11 +71,31 @@ else:
 def val(col):
     return int(row[col]) if row is not None else 0
 
-commandes_passees = st.number_input("🛒 Commandes passées", min_value=0, value=val("commandes_passees"))
-commandes_livrees = st.number_input("📦 Commandes livrées", min_value=0, value=val("commandes_livrees"))
-chiffre_affaire = st.number_input("💰 Chiffre d'affaires (FCFA)", min_value=0, value=val("chiffre_affaire"))
-charges = st.number_input("🧾 Charges (FCFA)", min_value=0, value=val("charges"))
-pub = st.number_input("📢 Publicité (FCFA)", min_value=0, value=val("pub"))
+commandes_passees = st.number_input(
+    "🛒 Commandes passées",
+    min_value=0,
+    value=val("commandes_passees")
+)
+commandes_livrees = st.number_input(
+    "📦 Commandes livrées",
+    min_value=0,
+    value=val("commandes_livrees")
+)
+chiffre_affaire = st.number_input(
+    "💰 Chiffre d'affaires (FCFA)",
+    min_value=0,
+    value=val("chiffre_affaire")
+)
+charges = st.number_input(
+    "🧾 Charges (FCFA)",
+    min_value=0,
+    value=val("charges")
+)
+pub = st.number_input(
+    "📢 Publicité (FCFA)",
+    min_value=0,
+    value=val("pub")
+)
 
 # =========================
 # CALCULS TEMPS RÉEL
@@ -81,6 +104,7 @@ benefice, pub_reelle = calcul_benefice_net(chiffre_affaire, charges, pub)
 taux_benef = taux_rentabilite(benefice, chiffre_affaire)
 taux_livr = taux_livraison(commandes_livrees, commandes_passees)
 commandes_perdues = max(commandes_passees - commandes_livrees, 0)
+
 objectif = objectif_colis_jour(pub_reelle)
 deficit_estime = calcul_deficit(deficit_precedent, objectif, commandes_livrees)
 
@@ -140,40 +164,63 @@ if benefice < 0:
     colis = int((manque / BENEFICE_PAR_COLIS) + 1)
     st.error(
         f"🔴 TU ES EN PERTE.\n\n"
-        f"➡️ Objectif minimum : **{colis} colis supplémentaires**\n"
-        f"➡️ Ou viser **+{manque} {MONNAIE} de chiffre d’affaires**\n\n"
-        f"⚠️ Tant que cet objectif n’est pas atteint, tu détruis ta trésorerie."
+        f"➡️ Livre **{colis} colis supplémentaires**\n"
+        f"➡️ OU vise **+{manque} {MONNAIE} de chiffre d’affaires**\n\n"
+        f"⚠️ Priorité absolue : stopper l’hémorragie."
     )
 
 elif deficit_estime > 0:
     st.warning(
-        f"🟠 TU ES DANS LE VERT MAIS LE MOIS RESTE FRAGILE.\n\n"
-        f"Il reste **{deficit_estime} colis à rattraper** pour sécuriser ton mois.\n"
-        f"👉 Priorité : rattraper ce déficit avant toute augmentation de dépenses."
+        f"🟠 MOIS FRAGILE.\n\n"
+        f"Il reste **{deficit_estime} colis à rattraper**.\n"
+        f"👉 Priorité : rattraper le déficit avant toute hausse de pub."
     )
 
-elif benefice < pub_reelle:
-    st.info(
-        "🟡 SITUATION STABLE MAIS À RISQUE.\n\n"
-        "Un retard livreur ou une annulation peut te faire replonger.\n"
-        "👉 Essaie de livrer **1 à 2 colis supplémentaires** pour sécuriser la journée."
+elif commandes_perdues > commandes_livrees:
+    st.warning(
+        "⚠️ PROBLÈME D’EXÉCUTION.\n\n"
+        "Tu perds plus de commandes que tu n’en livres.\n"
+        "👉 Recommandation : réduire la pub et finir les livraisons en attente."
     )
 
 elif benefice >= 2 * pub_reelle:
     st.success(
         "🔥 EXCELLENTE PERFORMANCE.\n\n"
-        "Tu es très rentable aujourd’hui.\n"
-        "👉 Options intelligentes :\n"
-        "- augmenter la publicité\n"
-        "- ou sécuriser plusieurs jours d’avance."
+        "Tu es très rentable.\n"
+        "👉 Tu peux augmenter la pub ou sécuriser plusieurs jours d’avance."
     )
 
 else:
     st.success(
-        "🟢 BONNE GESTION.\n\n"
-        "Tu es rentable et stable.\n"
-        "👉 Continue à ce rythme pour éviter un retour dans le rouge."
+        "🟢 SITUATION SAINE.\n\n"
+        "Continue à ce rythme pour rester dans le vert."
     )
+
+# =========================
+# 🎯 OBJECTIF MENSUEL : 1 000 000 FCFA
+# =========================
+st.header("🎯 Objectif mensuel – 1 000 000 FCFA")
+
+OBJECTIF_MENSUEL = 1_000_000
+benefice_mensuel = int(df["benefice_net"].sum())
+reste = OBJECTIF_MENSUEL - benefice_mensuel
+
+jours_ecoules = today.day
+jours_total = 30
+jours_restants = max(jours_total - jours_ecoules, 1)
+
+st.metric("💰 Bénéfice net actuel", f"{benefice_mensuel} {MONNAIE}")
+st.metric("🎯 Objectif", f"{OBJECTIF_MENSUEL} {MONNAIE}")
+st.metric("⏳ Reste à atteindre", f"{max(reste, 0)} {MONNAIE}")
+
+if reste > 0:
+    colis_jour = int((reste / (BENEFICE_PAR_COLIS * jours_restants)) + 1)
+    st.info(
+        f"📦 Pour atteindre 1 000 000 FCFA, vise **{colis_jour} colis livrés par jour** "
+        f"sur les **{jours_restants} jours restants**."
+    )
+else:
+    st.success("🔥 OBJECTIF MENSUEL ATTEINT ! Continue pour consolider 💪")
 
 # =========================
 # VUE MENSUELLE
