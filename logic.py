@@ -1,5 +1,5 @@
 # logic.py
-from config import TAXE_PUB, BENEFICE_PAR_COLIS
+from config import TAXE_PUB
 
 # =========================
 # CALCULS DE BASE
@@ -23,23 +23,24 @@ def taux_livraison(livrees, passees):
     return round((livrees / passees) * 100, 2)
 
 # =========================
-# NOUVEL OBJECTIF COLIS (BASÉ SUR PUB)
+# OBJECTIF COLIS (BASÉ SUR PUB)
 # =========================
 def objectif_colis_jour(pub_reelle):
-    """
-    - Objectif minimum : 4 colis
-    - Référence : 6 850 FCFA ≈ 4 colis
-    - Plus de pub = plus de colis requis
-    """
     if pub_reelle <= 0:
         return 4
-
     objectif = (pub_reelle / 6850) * 4
     return max(4, int(objectif + 0.999))
 
 # =========================
-# DÉFICIT CUMULATIF
+# DÉFICIT MENSUEL UNIQUE
 # =========================
-def calcul_deficit(deficit_precedent, objectif, livres):
-    deficit = deficit_precedent + objectif - livres
-    return max(deficit, 0)
+def calcul_deficit_mensuel(df):
+    """
+    Recalcule le déficit mensuel OFFICIEL
+    à partir de TOUT l'historique enregistré.
+    """
+    deficit = 0
+    for _, row in df.iterrows():
+        deficit += row["objectif_colis"] - row["commandes_livrees"]
+        deficit = max(deficit, 0)
+    return int(deficit)
